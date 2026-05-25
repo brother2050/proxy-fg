@@ -83,7 +83,11 @@ EOF
 cat > /workspace/start.sh << 'STARTEOF'
 #!/bin/bash
 # CloudStudio 出口封锁了 Google CDN 部分 IP 段，但提供了透明代理
-# 启动时自动检测透明代理 IP，然后追加上 iptables DNAT 规则
+# 通过 iptables DNAT 将 Google 流量重定向到透明代理，其余流量由 Xray freedom 直连
+#
+# CloudStudio 直连能力：
+#   ✅ Google (通过透明代理), 中国站点, GitHub, Cloudflare, Microsoft, Apple 等
+#   ❌ Wikipedia, DuckDuckGo 等（被 CloudStudio 额外封锁）
 
 # ── 自动检测透明代理 IP ──
 find_proxy() {
@@ -124,13 +128,13 @@ echo "[*] 透明代理: $PROXY_IP:443"
 
 # ── Google IP 段 ──
 GOOGLE_RANGES=(
-    "142.250.0.0/15"   # gemini.gstatic.com
-    "172.217.0.0/16"   # www.google.com
-    "216.58.192.0/19"  # www.google.com
-    "74.125.0.0/16"    # Google 前端
-    "64.233.160.0/19"  # Google 搜索
+    "142.250.0.0/15"   # gemini.gstatic.com, lh3.googleusercontent.com 等
+    "172.217.0.0/16"   # www.google.com (经典 IP 段)
+    "216.58.192.0/19"  # www.google.com (另一 IP 段)
+    "74.125.0.0/16"    # Google 前端服务
+    "64.233.160.0/19"  # Google 搜索等
     "173.194.0.0/16"   # Google 服务
-    "66.102.0.0/20"    # Googlebot
+    "66.102.0.0/20"    # Googlebot/爬虫相关
 )
 
 for range in "${GOOGLE_RANGES[@]}"; do
