@@ -10,7 +10,7 @@ macOS 浏览器                                    CloudStudio 服务器
 │  SOCKS5     │ ──────────────────────► │  Xray VLESS+WS (:8080)       │
 │  127.0.0.1  │                         │    │                         │
 │  :1080      │                         │    ├─ Google IP → iptables   │
-│  (proxy.py) │                         │    │   DNAT → 198.18.0.36:443│
+│  (proxy.py) │                         │    │   DNAT → 198.18.0.x:443 │
 └─────────────┘                         │    │        (透明代理)         │
                                         │    │                         │
                                         │    └─ 其他 IP → freedom 直连  │
@@ -21,13 +21,14 @@ macOS 浏览器                                    CloudStudio 服务器
 
 | 网站类别 | 方式 | 状态 |
 |----------|------|:----:|
-| Google / Gemini / Gmail / YouTube | 透明代理 (198.18.0.36:443) | ✅ |
+| Google / Gemini / Gmail / YouTube | 透明代理 (198.18.0.x) | ✅ |
+| HuggingFace | 透明代理 (DNS 劫持 → 198.18.0.x) | ✅ |
 | GitHub | freedom 直连 | ✅ |
 | 国内站点（百度、B站、知乎等） | freedom 直连 | ✅ |
 | Cloudflare / Microsoft / Apple | freedom 直连 | ✅ |
 | Wikipedia / DuckDuckGo | — | ❌ 被 CloudStudio 额外封锁 |
 
-> CloudStudio 的透明代理 `198.18.0.36` **仅允许 Google 服务**，非 Google 请求会返回 404。
+> CloudStudio 的透明代理通过 DNS 劫持 + TLS SNI 路由工作。部分非 Google 站点（如 HuggingFace）也会被 DNS 劫持到 `198.18.0.x`，透明代理根据 SNI 自动转发。Xray `freedom` outbound 解析 DNS 后直连 `198.18.0.x` 即可，无需额外配置。
 
 ---
 
@@ -448,7 +449,7 @@ source ~/.zshrc
 1. 安装 [SwitchyOmega](https://chrome.google.com/webstore/detail/proxy-switchyomega/padekgcemlokbadohgkifijomclgjgif) 扩展
 2. 新建代理情景 → SOCKS5, `127.0.0.1`, `1080` → 命名 `CloudStudio`
 3. 新建自动切换模式 → 规则走 `CloudStudio`，默认走 `直接连接`
-4. 添加规则：`*.google.com`, `*.gstatic.com`, `*.googleapis.com`, `*.googleusercontent.com`, `*.github.com` 等
+4. 添加规则：`*.google.com`, `*.gstatic.com`, `*.googleapis.com`, `*.googleusercontent.com`, `*.github.com`, `*.huggingface.co` 等
 5. 插件图标选自动切换模式
 
 ### Safari（PAC 文件）
@@ -469,7 +470,8 @@ function FindProxyForURL(url, host) {
         shExpMatch(host, "twitter.com") ||
         shExpMatch(host, "*.twitter.com") ||
         shExpMatch(host, "*.x.com") ||
-        shExpMatch(host, "*.twimg.com")) {
+        shExpMatch(host, "*.twimg.com") ||
+        shExpMatch(host, "*.huggingface.co")) {
         return "SOCKS5 127.0.0.1:1080";
     }
     return "DIRECT";
@@ -518,7 +520,7 @@ networksetup -setautoproxystate Wi-Fi off
 
 ### 非 Google 网站 404
 
-CloudStudio 透明代理 `198.18.0.36` 仅允许 Google 服务，其他网站返回 404。需走 `freedom` 直连即可（已配置），但 Wikipedia、DuckDuckGo 等部分站点被 CloudStudio 额外封锁。
+CloudStudio 透明代理通过 DNS 劫持 + TLS SNI 路由，部分站点（如 HuggingFace）也会被劫持到透明代理并正确代理。Xray `freedom` outbound 解析 DNS 后直连即可，无需额外配置。但 Wikipedia、DuckDuckGo 等部分站点被 CloudStudio 额外封锁，无法访问。
 
 ### 网站加载慢
 
